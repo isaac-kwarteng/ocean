@@ -17,7 +17,7 @@ This integration enables Port to sync resources from GitHub Cloud, including rep
 
 The GitHub Cloud integration creates the following data model in your Port installation:
 
-![GitHub Cloud Data Model](./docs/images/data-model.png)
+![GitHub Cloud Data Model](./docs/images/data-models.png)
 
 This model shows the relationships between:
 - Workflows
@@ -43,7 +43,7 @@ You can see all the resources that will be synchronized:
 ### Teams View
 The Teams page shows all synchronized GitHub teams:
 
-![Teams View](./docs/images/teams-view.png)
+![Teams View](./docs/images/teams.png)
 
 This view displays:
 - Team identifiers
