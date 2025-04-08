@@ -13,6 +13,48 @@ This integration enables Port to sync resources from GitHub Cloud, including rep
 - 🔐 Fine-grained access control
 - 📊 Detailed resource metrics
 
+## Data Model
+
+The GitHub Cloud integration creates the following data model in your Port installation:
+
+![GitHub Cloud Data Model](./docs/images/data-model.png)
+
+This model shows the relationships between:
+- Workflows
+- Pull Requests
+- Issues
+- Repositories
+- Teams
+
+## Integration Setup
+
+### Data Sources View
+The integration appears in your Port installation under "Data Sources":
+
+![Data Sources](./docs/images/data-sources.png)
+
+You can see all the resources that will be synchronized:
+- Repository
+- Pull Request
+- Issue
+- Team
+- Workflow
+
+### Teams View
+The Teams page shows all synchronized GitHub teams:
+
+![Teams View](./docs/images/teams-view.png)
+
+This view displays:
+- Team identifiers
+- Last update time
+- Creation date
+- Team URL
+- Team name
+- Description
+- Privacy settings
+- Member count
+
 ## Prerequisites
 
 - Python 3.11 or higher
