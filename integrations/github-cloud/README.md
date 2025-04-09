@@ -17,7 +17,7 @@ This integration enables Port to sync resources from GitHub Cloud, including rep
 
 The GitHub Cloud integration creates the following data model in your Port installation:
 
-![GitHub Cloud Data Model](./docs/images/data-models.png)
+![GitHub Cloud Data Model](./docs/images/models.png)
 
 This model shows the relationships between:
 - Workflows
@@ -31,7 +31,7 @@ This model shows the relationships between:
 ### Data Sources View
 The integration appears in your Port installation under "Data Sources":
 
-![Data Sources](./docs/images/data-sources.png)
+![Data Sources](./docs/images/sources.png)
 
 You can see all the resources that will be synchronized:
 - Repository
