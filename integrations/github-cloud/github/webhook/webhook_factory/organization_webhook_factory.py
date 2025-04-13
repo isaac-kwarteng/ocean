@@ -1,8 +1,9 @@
 from typing import Any, Optional
 
 from loguru import logger
+from port_ocean.context.ocean import ocean
 
-from github.clients.github_client import GitHubClient
+from github.client import GitHubClient
 from github.webhook.events import OrganizationEvents
 
 
@@ -16,11 +17,19 @@ class OrganizationWebHook:
         """Create webhooks for the organization."""
         logger.info("Creating webhooks for organization")
         webhook_config = {
-            "url": f"{self.base_url}/hook/{{organization_id}}",
+            "url": f"{self.base_url}/integration/webhook",
             "content_type": "json",
-            "secret": "{{webhook_secret}}",
+            "secret": ocean.integration_config.get("webhook_secret", ""),
             "events": self.events.to_dict(),
         }
-        await self.client.rest.send_api_request(
-            "POST", "orgs/{{organization}}/hooks", data=webhook_config
-        ) 
+        
+        try:
+            await self.client.send_api_request(
+                "POST", 
+                f"orgs/{self.client.organization}/hooks", 
+                data=webhook_config
+            )
+            logger.info("Successfully created webhook for organization")
+        except Exception as e:
+            logger.error(f"Failed to create webhook: {str(e)}")
+            raise 

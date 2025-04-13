@@ -1,223 +1,108 @@
-# GitHub Cloud Integration for Port
+# Port Ocean GitHub Integration
 
-This integration enables Port to sync resources from GitHub Cloud, including repositories, teams, issues, pull requests, and workflows.
+This integration allows you to sync your GitHub resources with Port. It supports repositories, teams, issues, pull requests, and workflows.
 
 ## Features
 
-- 🔄 Real-time synchronization of GitHub resources
-- 📦 Repository management and metadata
-- 👥 Team and member management
-- 🐛 Issue tracking and management
-- 🔄 Pull request tracking
-- ⚡ GitHub Actions workflow management
-- 🔐 Fine-grained access control
-- 📊 Detailed resource metrics
-
-## Data Model
-
-The GitHub Cloud integration creates the following data model in your Port installation:
-
-![GitHub Cloud Data Model](./docs/images/models.png)
-
-This model shows the relationships between:
-- Workflows
-- Pull Requests
-- Issues
-- Repositories
-- Teams
-
-## Integration Setup
-
-### Data Sources View
-The integration appears in your Port installation under "Data Sources":
-
-![Data Sources](./docs/images/sources.png)
-
-You can see all the resources that will be synchronized:
-- Repository
-- Pull Request
-- Issue
-- Team
-- Workflow
-
-### Teams View
-The Teams page shows all synchronized GitHub teams:
-
-![Teams View](./docs/images/teams.png)
-
-This view displays:
-- Team identifiers
-- Last update time
-- Creation date
-- Team URL
-- Team name
-- Description
-- Privacy settings
-- Member count
+- Real-time synchronization of GitHub resources
+- Support for multiple resource types:
+  - Repositories
+  - Teams
+  - Issues
+  - Pull Requests
+  - Workflows
+- Webhook support for real-time updates
+- Configurable polling intervals
+- Comprehensive error handling and logging
 
 ## Prerequisites
 
-- Python 3.11 or higher
-- GitHub account with appropriate permissions
-- Port account and API credentials
+- Python 3.9 or higher
+- Poetry for dependency management
+- A GitHub account with appropriate permissions
+- A Port account with API credentials
 
 ## Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/your-org/ocean.git
-cd ocean/integrations/github-cloud
-```
+   ```bash
+   git clone https://github.com/port-labs/ocean.git
+   cd ocean/integrations/github
+   ```
 
-2. Create and activate a virtual environment:
-```bash
-# Windows
-python -m venv .venv
-.\.venv\Scripts\activate
-
-# Unix/MacOS
-python -m venv .venv
-source .venv/bin/activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+2. Install dependencies:
+   ```bash
+   make install
+   ```
 
 ## Configuration
 
 1. Copy the example environment file:
-```bash
-cp .env.example .env
-```
+   ```bash
+   cp .env.example .env
+   ```
 
-2. Update the `.env` file with your credentials:
-```env
-# Port credentials
-PORT_CLIENT_ID=your_port_client_id
-PORT_CLIENT_SECRET=your_port_client_secret
+2. Update the environment variables in `.env`:
+   ```
+   OCEAN__PORT__CLIENT_ID="your-port-client-id"
+   OCEAN__PORT__CLIENT_SECRET="your-port-client-secret"
+   OCEAN__INTEGRATION__IDENTIFIER=github
+   OCEAN__PORT__BASE_URL=https://api.getport.io
+   OCEAN__EVENT_LISTENER__TYPE=POLLING
+   OCEAN__INITIALIZE_PORT_RESOURCES=true
 
-# GitHub credentials
-OCEAN__INTEGRATION__CONFIG__GITHUB_TOKEN=your_github_token
-OCEAN__INTEGRATION__CONFIG__GITHUB_ORG=your_github_org
-```
-
-### GitHub Token Requirements
-
-The GitHub token needs the following permissions:
-- `repo`: Full control of private repositories
-- `workflow`: Access to GitHub Actions workflows
-- `admin:org`: Full organization administration
-- `admin:public_key`: Management of SSH keys
-
-> **Note**: If you encounter a 403 error about token lifetime, consider using a fine-grained token instead of a classic token. Fine-grained tokens can bypass organization restrictions on token lifetime.
+   OCEAN__INTEGRATION__CONFIG__TOKEN="your-github-token"
+   OCEAN__INTEGRATION__CONFIG__ORGANIZATION="your-github-org"
+   OCEAN__BASE_URL=https://api.github.com
+   ```
 
 ## Usage
 
 1. Start the integration:
-```bash
-python main.py
-```
+   ```bash
+   poetry run python -m github
+   ```
 
 2. The integration will automatically:
-   - Sync repositories and their metadata
-   - Sync teams and members
-   - Sync issues and pull requests
-   - Sync GitHub Actions workflows
-
-## Resource Types
-
-### Repositories
-- Basic repository information
-- Languages and topics
-- Visibility and permissions
-- Branch protection rules
-
-### Teams
-- Team membership
-- Team permissions
-- Team repositories
-
-### Issues
-- Issue status and labels
-- Assignees and comments
-- Milestones and projects
-
-### Pull Requests
-- PR status and reviews
-- Merge status
-- Review comments
-
-### Workflows
-- Workflow status
-- Run history
-- Job details
+   - Initialize Port resources based on your GitHub data
+   - Set up webhook listeners or polling as configured
+   - Start syncing data between GitHub and Port
 
 ## Development
 
-### Project Structure
-```
-github-cloud/
-├── github/
-│   ├── clients/           # GitHub API clients
-│   │   ├── auth_client.py     # Authentication
-│   │   ├── base_client.py     # Base client
-│   │   ├── github_client.py   # Main client
-│   │   └── rest_client.py     # REST API
-│   ├── helpers/           # Helper functions
-│   └── webhook/           # Webhook handlers
-├── .port/                 # Port configuration
-│   └── resources/         # Port resources
-├── tests/                 # Test files
-└── main.py               # Entry point
-```
+- Format code:
+  ```bash
+  make format
+  ```
 
-### Adding New Features
+- Run linters:
+  ```bash
+  make lint
+  ```
 
-1. Create a new branch:
-```bash
-git checkout -b feature/your-feature
-```
+- Run tests:
+  ```bash
+  make test
+  ```
 
-2. Implement your changes
-3. Add tests
-4. Submit a pull request
-
-## Troubleshooting
-
-### Common Issues
-
-1. **403 Forbidden Error**
-   - Check token permissions
-   - Verify organization access
-   - Consider using a fine-grained token
-
-2. **Rate Limiting**
-   - Check GitHub API rate limits
-   - Implement rate limit handling
-   - Use appropriate token scopes
-
-3. **Missing Resources**
-   - Verify token permissions
-   - Check organization access
-   - Validate resource paths
+- Generate coverage report:
+  ```bash
+  make coverage
+  ```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to contribute to this project.
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
-For support, please:
+If you need help or have any questions, please:
+
 1. Check the [documentation](https://docs.getport.io)
-2. Open an issue in this repository
-3. Contact Port support at support@getport.io 
+2. Join our [Discord community](https://discord.gg/port-labs)
+3. Open an issue on GitHub
+4. Contact support@getport.io 
