@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, AsyncIterator, Any
 from loguru import logger
 from asyncio import Semaphore
 from port_ocean.context.event import event
@@ -39,10 +39,15 @@ async def on_start() -> None:
         raise
 
 
-async def process_with_concurrency(func, *args):
-    """Helper to manage concurrency limits"""
+async def process_with_concurrency(func, *args) -> AsyncIterator[Any]:
+    """Helper to manage concurrency limits and properly handle async generators"""
     async with semaphore:
-        return await func(*args)
+        result = await func(*args)
+        if hasattr(result, '__aiter__'):
+            async for item in result:
+                yield item
+        else:
+            yield result
 
 
 @ocean.on_resync(ObjectKind.REPOSITORY)
@@ -90,18 +95,21 @@ async def on_resync_teams(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
         yield []
 
 
-async def _process_repository_resources(client, repo, resource_type):
+async def _process_repository_resources(client, repo, resource_type) -> AsyncIterator[Any]:
     """Helper to process resources for a single repository"""
     try:
         if resource_type == "issues":
-            return client.get_issues(repo["name"])
+            async for issue in client.get_issues(repo["name"]):
+                yield issue
         elif resource_type == "pulls":
-            return client.get_pull_requests(repo["name"])
+            async for pr in client.get_pull_requests(repo["name"]):
+                yield pr
         elif resource_type == "workflows":
-            return client.get_workflows(repo["name"])
+            async for workflow in client.get_workflows(repo["name"]):
+                yield workflow
     except Exception as e:
         logger.warning(f"Skipping {resource_type} for {repo['name']}: {e}")
-        return []
+        yield []
 
 
 @ocean.on_resync(ObjectKind.ISSUE)
@@ -118,8 +126,8 @@ async def on_resync_issues(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
                     _process_repository_resources, client, repo, "issues"
                 ):
                     if issues_batch:
-                        total_issues += len(issues_batch)
-                        yield issues_batch
+                        total_issues += 1
+                        yield [issues_batch]
 
         logger.success(
             f"Synced {total_issues} issues from {repo_count} repositories"
@@ -143,8 +151,8 @@ async def on_resync_pull_requests(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
                     _process_repository_resources, client, repo, "pulls"
                 ):
                     if prs_batch:
-                        total_prs += len(prs_batch)
-                        yield prs_batch
+                        total_prs += 1
+                        yield [prs_batch]
 
         logger.success(
             f"Synced {total_prs} PRs from {repo_count} repositories"
@@ -168,8 +176,8 @@ async def on_resync_workflows(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
                     _process_repository_resources, client, repo, "workflows"
                 ):
                     if workflows_batch:
-                        total_workflows += len(workflows_batch)
-                        yield workflows_batch
+                        total_workflows += 1
+                        yield [workflows_batch]
 
         logger.success(
             f"Synced {total_workflows} workflows from {repo_count} repositories"
