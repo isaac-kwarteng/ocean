@@ -42,7 +42,7 @@ async def on_start() -> None:
 async def process_with_concurrency(func, *args) -> AsyncIterator[Any]:
     """Helper to manage concurrency limits and properly handle async generators"""
     async with semaphore:
-        result = await func(*args)
+        result = func(*args)
         if hasattr(result, '__aiter__'):
             async for item in result:
                 yield item
@@ -145,18 +145,22 @@ async def on_resync_pull_requests(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
         repo_count = 0
 
         async for repos_batch in client.get_repositories():
+            repo_count += len(repos_batch)
+            logger.info(f"Processing {len(repos_batch)} repositories (Total: {repo_count})")
+
             for repo in repos_batch:
-                repo_count += 1
+                repo_name = repo["name"]
+                logger.debug(f"Checking PRs for repository: {repo_name}")
+
                 async for prs_batch in process_with_concurrency(
-                    _process_repository_resources, client, repo, "pulls"
+                    client.get_pull_requests, repo_name
                 ):
                     if prs_batch:
-                        total_prs += 1
-                        yield [prs_batch]
+                        total_prs += len(prs_batch)
+                        logger.debug(f"Found {len(prs_batch)} PRs in {repo_name}")
+                        yield prs_batch
 
-        logger.success(
-            f"Synced {total_prs} PRs from {repo_count} repositories"
-        )
+        logger.info(f"Total PRs found: {total_prs} from {repo_count} repositories")
     except Exception as e:
         logger.error(f"PR sync failed: {e}")
         yield []

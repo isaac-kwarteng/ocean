@@ -10,7 +10,7 @@ from port_ocean.context.ocean import ocean
 
 
 class GitHubClient:
-    DEFAULT_PARAMS = {"per_page": 100}  # Maximum allowed by GitHub API
+    DEFAULT_PARAMS = {"per_page": 100}  
     DEFAULT_PAGE_SIZE = 100
     VALID_REPOSITORY_RESOURCES = ["issues", "pulls", "actions/workflows"]
 
@@ -168,10 +168,12 @@ class GitHubClient:
         async for batch in self.get_paginated_resource(f"orgs/{self.org}/teams"):
             yield batch
 
-    async def get_pull_requests(
-        self, repo: str, params: Optional[Dict[str, Any]] = None
-    ) -> AsyncIterator[List[Dict[str, Any]]]:
+    async def get_pull_requests(self, repo: str, params: Optional[Dict[str, Any]] = None) -> AsyncIterator[List[Dict[str, Any]]]:
         path = await self.get_repo_endpoint(repo, "pulls")
+        params = params or {}
+        params.update({"state": "all"})  # Get all PRs (open, closed, merged)
+        logger.info(f"Fetching PRs for {repo} with params: {params}")
+        
         async for batch in self._make_paginated_request(path, params):
             yield batch
 
