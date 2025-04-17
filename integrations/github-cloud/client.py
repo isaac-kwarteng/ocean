@@ -8,9 +8,8 @@ from port_ocean.utils import http_async_client
 from port_ocean.context.ocean import ocean
 
 
-
 class GitHubClient:
-    DEFAULT_PARAMS = {"per_page": 100}  
+    DEFAULT_PARAMS = {"per_page": 100}
     DEFAULT_PAGE_SIZE = 100
     VALID_REPOSITORY_RESOURCES = ["issues", "pulls", "actions/workflows"]
 
@@ -157,32 +156,76 @@ class GitHubClient:
         return await asyncio.gather(*[enrich_func(item) for item in batch])
 
     async def get_teams(self) -> AsyncIterator[List[Dict[str, Any]]]:
+        """Fetch all teams with full details including counts"""
         if not self.org:
-            raise ValueError("No organization configured")
+            raise ValueError("Organization not configured")
 
-        owner_type = await self.determine_owner_type(self.org)
-        if owner_type != "Organization":
-            logger.warning("Teams are only available for organizations")
-            return
+        path = f"orgs/{self.org}/teams"
+        async for team_batch in self._make_paginated_request(path):
+            # Enrich each team with detailed counts
+            enriched_teams = []
+            for team in team_batch:
+                detailed_team = await self._get_team_details(team["slug"])
+                enriched_teams.append(detailed_team)
+            yield enriched_teams
 
-        async for batch in self.get_paginated_resource(f"orgs/{self.org}/teams"):
-            yield batch
+    async def _get_team_details(self, team_slug: str) -> Dict[str, Any]:
+        """Get detailed team information including counts"""
+        path = f"orgs/{self.org}/teams/{team_slug}"
+        return await self.send_api_request("GET", path)
 
-    async def get_pull_requests(self, repo: str, params: Optional[Dict[str, Any]] = None) -> AsyncIterator[List[Dict[str, Any]]]:
+    async def get_teams_with_repos(self) -> AsyncIterator[List[Dict[str, Any]]]:
+        """Fetch all teams with their associated repositories"""
+        if not self.org:
+            raise ValueError("Organization not configured")
+
+        path = f"orgs/{self.org}/teams"
+
+        async for team_batch in self._make_paginated_request(path):
+            enriched_teams = []
+            for team in team_batch:
+                # Get team details
+                detailed_team = await self._get_team_details(team["slug"])
+
+                # Get team repositories
+                repos_path = f"orgs/{self.org}/teams/{team['slug']}/repos"
+                detailed_team["repositories"] = []
+                async for repo_batch in self._make_paginated_request(repos_path):
+                    detailed_team["repositories"].extend([repo["name"] for repo in repo_batch])
+
+                enriched_teams.append(detailed_team)
+            yield enriched_teams
+
+    async def get_pull_requests(
+        self, repo: str, params: Optional[Dict[str, Any]] = None
+    ) -> AsyncIterator[List[Dict[str, Any]]]:
         path = await self.get_repo_endpoint(repo, "pulls")
         params = params or {}
         params.update({"state": "all"})  # Get all PRs (open, closed, merged)
         logger.info(f"Fetching PRs for {repo} with params: {params}")
-        
+
         async for batch in self._make_paginated_request(path, params):
             yield batch
 
     async def get_issues(
-        self, repo: str, params: Optional[Dict[str, Any]] = None
+        self, repo_name: str, params: Optional[Dict[str, Any]] = None
     ) -> AsyncIterator[List[Dict[str, Any]]]:
-        path = await self.get_repo_endpoint(repo, "issues")
+        """Fetch all issues for a specific repository"""
+        path = f"repos/{self.org}/{repo_name}/issues"
+        params = params or {}
+        params.update(
+            {
+                "state": "all",  # Get open, closed, and merged issues
+                "filter": "all",  # Include all issue types
+                "per_page": 100,  # Max items per page
+            }
+        )
+
         async for batch in self._make_paginated_request(path, params):
-            yield batch
+            # Filter out pull requests (GitHub API returns both)
+            actual_issues = [issue for issue in batch if "pull_request" not in issue]
+            if actual_issues:
+                yield actual_issues
 
     async def get_workflows(
         self, repo: str, params: Optional[Dict[str, Any]] = None

@@ -11,7 +11,7 @@ from helpers.utils import ObjectKind
 
 # Global client instance and concurrency control
 _CLIENT = None
-CONCURRENCY_LIMIT = 5  
+CONCURRENCY_LIMIT = 5
 semaphore = Semaphore(CONCURRENCY_LIMIT)
 
 
@@ -43,7 +43,7 @@ async def process_with_concurrency(func, *args) -> AsyncIterator[Any]:
     """Helper to manage concurrency limits and properly handle async generators"""
     async with semaphore:
         result = func(*args)
-        if hasattr(result, '__aiter__'):
+        if hasattr(result, "__aiter__"):
             async for item in result:
                 yield item
         else:
@@ -64,9 +64,7 @@ async def on_resync_repositories(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
             logger.info(f"Processing {processed_count} repositories (Total: {total_repos})")
             yield batch
 
-        logger.success(
-            f"Completed repository sync for {total_repos} repositories"
-        )
+        logger.success(f"Completed repository sync for {total_repos} repositories")
     except Exception as e:
         logger.error(f"Repository sync failed: {e}")
         yield []
@@ -78,37 +76,20 @@ async def on_resync_teams(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
     try:
         total_teams = 0
 
-        async for batch in client.get_teams():
+        async for batch in client.get_teams_with_repos():
+            logger.debug(f"Team with repos data sample: {batch[0]}")
+
             processed_count = len(batch)
             total_teams += processed_count
-            logger.info(f"Processing {processed_count} teams (Total: {total_teams})")
+            logger.info(
+                f"Processing {processed_count} teams with repositories (Total: {total_teams})"
+            )
+
             yield batch
 
-        if total_teams > 0:
-            logger.success(
-                f"Completed team sync for {total_teams} teams"
-            )
-        else:
-            logger.warning("No teams found or organization not accessible")
+        logger.success(f"Completed team sync for {total_teams} teams with repository relationships")
     except Exception as e:
         logger.error(f"Team sync failed: {e}")
-        yield []
-
-
-async def _process_repository_resources(client, repo, resource_type) -> AsyncIterator[Any]:
-    """Helper to process resources for a single repository"""
-    try:
-        if resource_type == "issues":
-            async for issue in client.get_issues(repo["name"]):
-                yield issue
-        elif resource_type == "pulls":
-            async for pr in client.get_pull_requests(repo["name"]):
-                yield pr
-        elif resource_type == "workflows":
-            async for workflow in client.get_workflows(repo["name"]):
-                yield workflow
-    except Exception as e:
-        logger.warning(f"Skipping {resource_type} for {repo['name']}: {e}")
         yield []
 
 
@@ -120,20 +101,34 @@ async def on_resync_issues(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
         repo_count = 0
 
         async for repos_batch in client.get_repositories():
-            for repo in repos_batch:
-                repo_count += 1
-                async for issues_batch in process_with_concurrency(
-                    _process_repository_resources, client, repo, "issues"
-                ):
-                    if issues_batch:
-                        total_issues += 1
-                        yield [issues_batch]
+            repo_count += len(repos_batch)
+            logger.info(
+                f"Checking {len(repos_batch)} repositories for issues (Total repos: {repo_count})"
+            )
 
-        logger.success(
-            f"Synced {total_issues} issues from {repo_count} repositories"
-        )
+            for repo in repos_batch:
+                repo_name = repo["name"]
+                async for issues_batch in client.get_issues(repo_name):
+                    # Enrich issues with repository context
+                    enriched_issues = []
+                    for issue in issues_batch:
+                        issue.update(
+                            {
+                                "repository": repo_name,
+                                "repository_full_name": repo["full_name"],
+                                "is_issue": True,  # Explicit marker
+                            }
+                        )
+                        enriched_issues.append(issue)
+
+                    if enriched_issues:
+                        total_issues += len(enriched_issues)
+                        logger.debug(f"Found {len(enriched_issues)} issues in {repo_name}")
+                        yield enriched_issues
+
+        logger.success(f"Synced {total_issues} issues from {repo_count} repositories")
     except Exception as e:
-        logger.error(f"Issue sync failed: {e}")
+        logger.error(f"Issue sync failed: {str(e)}")
         yield []
 
 
@@ -170,22 +165,14 @@ async def on_resync_pull_requests(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
 async def on_resync_workflows(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
     client = get_github_client()
     try:
-        total_workflows = 0
-        repo_count = 0
-
         async for repos_batch in client.get_repositories():
             for repo in repos_batch:
-                repo_count += 1
-                async for workflows_batch in process_with_concurrency(
-                    _process_repository_resources, client, repo, "workflows"
-                ):
-                    if workflows_batch:
-                        total_workflows += 1
-                        yield [workflows_batch]
-
-        logger.success(
-            f"Synced {total_workflows} workflows from {repo_count} repositories"
-        )
+                repo_name = repo["name"]
+                async for workflows_batch in client.get_workflows(repo_name):
+                    # Enrich with repository context
+                    for workflow in workflows_batch:
+                        workflow["repository"] = repo_name
+                    yield workflows_batch
     except Exception as e:
         logger.error(f"Workflow sync failed: {e}")
         yield []
