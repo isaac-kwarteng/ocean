@@ -165,14 +165,38 @@ async def on_resync_pull_requests(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
 async def on_resync_workflows(kind: str) -> ASYNC_GENERATOR_RESYNC_TYPE:
     client = get_github_client()
     try:
+        total_workflows = 0
+        repo_count = 0
+
         async for repos_batch in client.get_repositories():
+            repo_count += len(repos_batch)
+            logger.info(f"Processing {len(repos_batch)} repositories (Total: {repo_count})")
+
             for repo in repos_batch:
                 repo_name = repo["name"]
+                logger.debug(f"Checking workflows for repository: {repo_name}")
+
                 async for workflows_batch in client.get_workflows(repo_name):
-                    # Enrich with repository context
-                    for workflow in workflows_batch:
-                        workflow["repository"] = repo_name
-                    yield workflows_batch
+                    if workflows_batch:
+                        total_workflows += len(workflows_batch)
+
+                        # Enrich workflow data
+                        enriched_workflows = []
+                        for workflow in workflows_batch:
+                            workflow.update(
+                                {
+                                    "repository_full_name": repo["full_name"],
+                                    "repository_owner": repo["owner"]["login"],
+                                    "htmlUrl": workflow.get("html_url"),
+                                    "private": repo["private"],
+                                }
+                            )
+                            enriched_workflows.append(workflow)
+
+                        logger.debug(f"Found {len(enriched_workflows)} workflows in {repo_name}")
+                        yield enriched_workflows
+
+        logger.success(f"Synced {total_workflows} workflows from {repo_count} repositories")
     except Exception as e:
         logger.error(f"Workflow sync failed: {e}")
         yield []

@@ -227,13 +227,44 @@ class GitHubClient:
             if actual_issues:
                 yield actual_issues
 
-    async def get_workflows(
-        self, repo: str, params: Optional[Dict[str, Any]] = None
-    ) -> AsyncIterator[List[Dict[str, Any]]]:
-        path = await self.get_repo_endpoint(repo, "actions/workflows")
-        async for batch in self._make_paginated_request(path, params):
-            yield batch
+    async def get_workflows(self, repo: str) -> AsyncIterator[List[Dict[str, Any]]]:
+        path = f"repos/{self.org}/{repo}/actions/workflows" if self.org else f"repos/{self.username}/{repo}/actions/workflows"
+        logger.info(f"Fetching workflows from: {path}")
+        
+        try:
+            response = await self.send_api_request("GET", path)
+            logger.debug(f"API response: {response}")
+            
+            if not response.get("workflows"):
+                logger.warning(f"No workflows found in {repo}")
+                yield []
+                return
+                
+            # Add repository context
+            workflows = response["workflows"]
+            for w in workflows:
+                w["repository"] = {
+                    "full_name": f"{self.org or self.username}/{repo}",
+                    "name": repo
+                }
+                
+            logger.info(f"Found {len(workflows)} workflows in {repo}")
+            yield workflows
+            
+        except Exception as e:
+            logger.error(f"Failed to get workflows: {str(e)}")
+            yield []
 
+    async def get_workflow(
+        self, repo: str, workflow_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get details for a specific workflow"""
+        path = await self.get_repo_endpoint(repo, f"actions/workflows/{workflow_id}")
+        try:
+            return await self.send_api_request("GET", path)
+        except Exception as e:
+            logger.error(f"Failed to get workflow {workflow_id} for {repo}: {e}")
+            return None
     async def get_repository_resource(
         self,
         repos_batch: List[Dict[str, Any]],
